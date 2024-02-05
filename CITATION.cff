@@ -1,0 +1,18 @@
+cff-version: 1.2.0
+title: iTSCAN
+message: >-
+  If you use this software, please cite it using the
+  metadata from this file.
+type: software
+authors:
+  - given-names: Pierre
+    family-names: Margerit
+    email: pierre.margerit@ensam.eu
+    name-particle: Pierre
+    affiliation: 'Laboratoire PIMM, UMR CNRS 8006, ENSAM Paris'
+    orcid: 'https://orcid.org/0000-0003-4922-9837'
+  - given-names: Anne-Sophie
+    family-names: Poudrel
+    email: anne-sophie.poudrel@ensam.eu
+    affiliation: 'Laboratoire PIMM, UMR CNRS 8006, ENSAM Paris'
+license: GPL-3.0
