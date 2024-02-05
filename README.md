@@ -7,3 +7,7 @@ in double through-transmission* by Poudrel & al. (submittted to the *Journal of 
 The main MATLAB script [`iTSCAN.m`](https://github.com/MargeritPierre/thetascan/blob/main/iTSCAN.m) contains all the necessary code to reproduce the results. 
 A number of pre-formatted $\theta$-scans are provided int the [data]() folder. 
 
+## An example on pure VeroWhite
+<p align="center"> 
+  <img alt="Screenshot: Theta Scan Comparison" src="doc/tscan_comparison.png" width="90%"/> 
+</p>
