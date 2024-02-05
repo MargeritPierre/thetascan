@@ -4,8 +4,8 @@
 %
 % The input data (a theta-scan) must be a structure with the following
 % fields (see the examples in ./data):
-% - "u0" [nT,1] reference signal (without the specimen)
-% - "u" [nT,nTheta] theta-scan
+% - "s_ref" [nT,1] reference signal (without the specimen)
+% - "s" [nT,nTheta] theta-scan
 % - "t" [nT,1] time vector (sec)
 % - "theta" [1,nTheta] angle vector (rad)
 % - "rho" specimen density (tons/mm3)
@@ -27,10 +27,10 @@
     if path==0 ; return ; end
 % Load the file
     load([path filesep file]) ; 
-    [nT,nTheta] = size(u) ;
+    [nT,nTheta] = size(s) ;
     if ~exist('theta','var') ; theta = (0:nTheta-1)*pi/180 ; end
 % Plot the file
-    clf ; plotMAP(u,theta,t) ;
+    clf ; plotMAP(s,theta,t) ;
     
 %% INITIAL GUESS WITH PRONY METHOD
 
@@ -58,10 +58,10 @@
     omega = 2*pi*fModel ;
 
 % Reference signal
-    u_ref = u0-zeroMean*mean(u0,1) ;
+    s_ref = s_ref-zeroMean*mean(s_ref,1) ;
 
 % Initialize wave speeds with Prony method at normal incidence
-    cl = normalIncidenceEstim(u(:,theta==0),u0,t,c0,h) ;
+    cl = normalIncidenceEstim(s(:,theta==0),s_ref,t,c0,h) ;
     disp("Estimated longitudinal wave celerity: cl="+num2str(cl))
     ct = cl.*sqrt((1-2*nu_init)./(1-nu_init)./2) ;
 
@@ -69,17 +69,12 @@
     k0 = omega./c0 ;
     kl = omega./cl ;
     kt = omega./ct ;
-
+    
 % Compute the "initial" BSCAN
-    s = TSCAN(theta,k0,rho_0,kl,kt,rho,h,u_ref) ;
-    clf ; im = plotMAP(cat(3,s,u,s-u),theta,t) ;
-    set(title([im.Parent],''),{'String'},{'\bf Model';'\bf Experiment';'\bf Residual'})
+    u = TSCAN(theta,k0,rho_0,kl,kt,rho,h,s_ref) ;
+    clf ; im = plotMAP(cat(3,s,u,u-s),theta,t) ;
+    set(title([im.Parent],''),{'String'},{'\bf Experiment';'\bf Model';'\bf Residual'})
 
-%% SZABO MODEL
-    Np_dB = 20/log(10)/100 ; % unit scaling for attenuation
-    v_szabo = @(v,a,y) (1./v + a/Np_dB .* tan(pi/2.*y)* ( ((omega./omegaC).^y).*(omega.^-1)-omegaC.^-1) ).^-1 ; % phase speed
-    a_szabo = @(v,a,y) a.*((omega./omegaC).^y) ; % wave attenuation
-    k_szabo = @(v,a,y) (omega./v_szabo(v,a,y)) - 1i*a_szabo(v,a,y)/Np_dB ; % wavenumber law
 
 %% SZABO'S MODEL PARAMETERS ESTIMATION VIA RESIDUAL MINIMIZATION
 % Optimization parameters
@@ -88,6 +83,13 @@
     step = .25 ; % relative updating step (damping)
     relSensitivity = true ; % use relative sensitivities for better conditionning
     variableGain = false ; % optimize the gain ?
+    
+% SZABO Model
+    Np_dB = 20/log(10)/100 ; % unit scaling for attenuation
+    v_szabo = @(v,a,y) (1./v + a/Np_dB .* tan(pi/2.*y)* ( ((omega./omegaC).^y).*(omega.^-1)-omegaC.^-1) ).^-1 ; % phase speed
+    a_szabo = @(v,a,y) a.*((omega./omegaC).^y) ; % wave attenuation
+    k_szabo = @(v,a,y) (omega./v_szabo(v,a,y)) - 1i*a_szabo(v,a,y)/Np_dB ; % wavenumber law
+
 % Initial values for the parameters
 args0 = struct(...
         'vlC' , real(cl)*(1 + (imag(cl)/real(cl))^2) ...
@@ -117,14 +119,14 @@ bscanFun = @(arg)TSCAN(theta + arg.theta0...
                 ,k0,rho_0...
                 ,k_szabo(arg.vlC,arg.alC,arg.yl) ...
                 ,k_szabo(arg.vtC,arg.atC,arg.yt) ...
-                ,arg.rho,arg.h,u_ref) ;
+                ,arg.rho,arg.h,s_ref) ;
 sFun = @(p)bscanFun(setfields(args0,optim,p)) ;
 
 % INITIAL BSCAN
 args = args0 ; p = getfields(args0,optim) ; dP = inf ; it = 0 ;
-s = sFun(p) ;
-clf ; im = plotMAP(cat(3,s,u,s-u),theta,t) ;
-set(title([im.Parent],''),{'String'},{'\bf Model';'\bf Experiment';'\bf Residual'})
+u = sFun(p) ;
+clf ; im = plotMAP(cat(3,s,u,u-s),theta,t) ;
+set(title([im.Parent],''),{'String'},{'\bf Experiment';'\bf Model';'\bf Residual'})
 
 % OPTIMIZATION
 while max(abs(dP(:)./p(:)))>dPmax && it<maxIt
@@ -132,10 +134,10 @@ while max(abs(dP(:)./p(:)))>dPmax && it<maxIt
     ds_dp = dfun_dp(sFun,p) ;
     if relSensitivity ; ds_dp = ds_dp.*reshape(p,1,1,[]) ; end
 % Evaluate gain from expe/model signal norms
-    G_est = norm(u(:))/norm(s(:)) ;
+    G_est = norm(s(:))/norm(u(:)) ;
     if variableGain ; G_it = G_est ; else G_it = 1 ; end
 % Residual
-    RES = s-G_it*u ;
+    RES = u-G_it*s ;
     dRES_dp = reshape(ds_dp,[],numel(p)) ;
 % Update
     jac = dRES_dp'*RES(:) ; % jacobian
@@ -145,11 +147,11 @@ while max(abs(dP(:)./p(:)))>dPmax && it<maxIt
 % UPDATED BSCAN
     it = it+1 ;
     p(:) = p(:) + step*dP(:) ;
-    s = sFun(p) ;
+    u = sFun(p) ;
     % DISPLAY
     args = setfields(args0,optim,p) ;
     disp("it:"+string(it)+" | G_it="+num2str(G_it,4)) ; disp(args) 
-    plotMAP(cat(3,s,u,RES),theta,t,im) ; drawnow ;
+    plotMAP(cat(3,u,s,RES),theta,t,im) ; drawnow ;
 end
     
 %% FINAL VELOCITIES & UNCERTAINTIES
@@ -161,10 +163,10 @@ end
 % Evaluate uncertainties
     sigmaFun = @(dg_df,deltaf) sum((abs(dg_df.').*abs(deltaf(:))).^2,1).^(1/2) ;
     % Model
-        s = sFun(p) ;
+        u = sFun(p) ;
         ds_dp = dfun_dp(sFun,p) ;
     % Residual
-        RES = s(:)-G_it*u(:) ;
+        RES = u(:)-G_it*s(:) ;
         dRES_dp = reshape(ds_dp,[],numel(p)) ;
     % Propagate into parameters
         dp_dRES =  (dRES_dp'*dRES_dp)\dRES_dp' ; % pseudo-inverse
@@ -203,7 +205,7 @@ end
     xlabel(ax,'Frequency (MHz)') ;
 
 %% SUB-FUNCTIONS
-function [u,H] = TSCAN(theta,k0,rho_0,kl,kt,rho,h,u0)
+function [u,H] = TSCAN(theta,k0,rho_0,kl,kt,rho,h,s_ref)
 % Model of the theta-scan
     % Define wavevectors & modes
     % fluid waves
@@ -233,14 +235,14 @@ function [u,H] = TSCAN(theta,k0,rho_0,kl,kt,rho,h,u0)
     % OUTPUT TIME SIGNAL
         nTmodel = 2*size(H,1)-1 ;
         % Input spectrum
-        U0 = fft(u0,nTmodel) ; 
-        U0 = U0(1:size(H,1)) ; % half the spectrum
-        U = H.*U0 ;
+        Sref = fft(s_ref,nTmodel) ; 
+        Sref = Sref(1:size(H,1)) ; % half the spectrum
+        U = H.*Sref ;
         u = ifft(U,2*size(U,1)-1,1,'symmetric') ;
-        u = u(1:size(u0,1),:,:,:) ; % crop with the length of the input
+        u = u(1:size(s_ref,1),:,:,:) ; % crop with the length of the input
 end
 
-function cl = normalIncidenceEstim(u,u0,t,c0,h)
+function cl = normalIncidenceEstim(s,s_ref,t,c0,h)
 % Estimate a complex longitudinal wave speed from normal incidence data using
 % a Prony method
     % Infos
@@ -248,15 +250,15 @@ function cl = normalIncidenceEstim(u,u0,t,c0,h)
         domega = 2*pi/numel(t)/dt ;
         omega = (0:numel(t)-1)'*domega ; 
     % Signals & Transfer function
-        U = fft(u,[],1) ;
-        U0 = fft(u0,[],1) ;
-        iH = U0./U ; 
+        S = fft(s,[],1) ;
+        Sref = fft(s_ref,[],1) ;
+        iH = Sref./S ; 
     % Water layer correction
         iH0 = iH.*exp(2i*(h./c0).*omega) ;
     % Weighting with signal bandwidth
-        w = ones(size(U)) ; % initialize
-        w = w.*(abs(U)>0.01*max(abs(U))) ; % thresholding
-        w = w.*(abs(U)./max(abs(U))).^(2/2) ; % signal power related weight
+        w = ones(size(S)) ; % initialize
+        w = w.*(abs(S)>0.01*max(abs(S))) ; % thresholding
+        w = w.*(abs(S)./max(abs(S))).^(2/2) ; % signal power related weight
         w = w.*(dt*omega<pi) ; % only half-spectrum is needed
     % Hankel data matrix
         hank = hankel(1:4,4:numel(iH0)).' ;
