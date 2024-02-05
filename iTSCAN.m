@@ -73,7 +73,7 @@
 % Compute the "initial" BSCAN
     s = TSCAN(theta,k0,rho_0,kl,kt,rho,h,u_ref) ;
     clf ; im = plotMAP(cat(3,s,u,s-u),theta,t) ;
-    set(title([im.Parent],''),{'String'},{'Model';'Experiment';'Residual'})
+    set(title([im.Parent],''),{'String'},{'\bf Model';'\bf Experiment';'\bf Residual'})
 
 %% SZABO MODEL
     Np_dB = 20/log(10)/100 ; % unit scaling for attenuation
@@ -124,7 +124,7 @@ sFun = @(p)bscanFun(setfields(args0,optim,p)) ;
 args = args0 ; p = getfields(args0,optim) ; dP = inf ; it = 0 ;
 s = sFun(p) ;
 clf ; im = plotMAP(cat(3,s,u,s-u),theta,t) ;
-set(title([im.Parent],''),{'String'},{'Model';'Experiment';'Residual'})
+set(title([im.Parent],''),{'String'},{'\bf Model';'\bf Experiment';'\bf Residual'})
 
 % OPTIMIZATION
 while max(abs(dP(:)./p(:)))>dPmax && it<maxIt
