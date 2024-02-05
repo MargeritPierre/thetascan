@@ -5,7 +5,7 @@ in double through-transmission* by Poudrel & al. (submittted to the *Journal of 
 
 ## How to get started ?
 The main MATLAB script [`iTSCAN.m`](iTSCAN.m) contains all the necessary code to reproduce the results. 
-A number of pre-formatted $\theta$-scans are provided int the [data](/data) folder. 
+A number of pre-formatted $\theta$-scans are provided int the [/data](/data) folder. 
 
 ## An example on pure VeroWhite
 <p align="center"> 
